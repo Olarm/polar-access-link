@@ -1,0 +1,7 @@
+__pycache__
+venv
+endpoints
+
+*.toml
+*.yml
+*.yaml
