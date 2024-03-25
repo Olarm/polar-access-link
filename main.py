@@ -1,7 +1,8 @@
-import requests
 import tomllib
+import json
 import psycopg
 import asyncio
+import datetime
 
 from accesslink import AccessLink
 
@@ -24,13 +25,71 @@ async def insert_exercises(al, access_token, acur):
     exercises = al.get_exercises(access_token)
     for exercise in exercises:
         polar_id = exercise.get("id")
-        start_time = exercise.get("start_time")
+        start_time = datetime.datetime.fromisoformat(exercise.get("start_time"))
         await acur.execute(
             #"INSERT INTO exercises (polar_id, start_time, data) VALUES (%s, %s, %s) on conflict do nothing",
             #(polar_id, start_time, exercise))
-            f"INSERT INTO exercises (polar_id, start_time, data) VALUES ({polar_id}, {start_time}, {exercise}) on conflict do nothing",
+            """INSERT INTO 
+                exercises (
+                    polar_id, 
+                    start_time, 
+                    data
+                ) 
+                VALUES (%s, %s, %s) 
+            ON CONFLICT DO NOTHING""",
+            (polar_id, start_time, json.dumps(exercise))
         )
 
+
+async def insert_sleep(al, access_token, acur):
+    sleeps = al.get_sleep(access_token).get("nights")
+    for sleep in sleeps:
+        sleep_date = datetime.date.fromisoformat(sleep.get("date"))
+        await acur.execute("""
+            INSERT INTO
+                sleep (
+                    date,
+                    data
+                )
+                VALUES (%s, %s)
+            ON CONFLICT DO NOTHING""",
+            (sleep_date, json.dumps(sleep))
+        )
+
+
+async def insert_recharge(al, access_token, acur):
+    recharges = al.get_recharge(access_token).get("recharges")
+    for recharge in recharges:
+        recharge_date = datetime.date.fromisoformat(recharge.get("date"))
+        await acur.execute("""
+            INSERT INTO
+                recharge (
+                    date,
+                    data
+                )
+                VALUES (%s, %s)
+            ON CONFLICT DO NOTHING""",
+            (recharge_date, json.dumps(recharge))
+        )
+
+
+async def insert_cardio_load(al, access_token, acur):
+    cardio_loads = al.get_cardio_load(access_token)
+    for cardio_load in cardio_loads:
+        cardio_date = datetime.date.fromisoformat(cardio_load.get("date"))
+        await acur.execute("""
+            INSERT INTO
+                cardio_load (
+                    date,
+                    data
+                )
+                VALUES (%s, %s)
+            ON CONFLICT (date)
+                DO UPDATE
+                    SET data = %s
+            """,
+            (cardio_date, json.dumps(cardio_load), json.dumps(cardio_load))
+        )
 
 
 async def get_all():
@@ -41,6 +100,9 @@ async def get_all():
     async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
         async with aconn.cursor() as acur:
             await insert_exercises(al, access_token, acur)
+            await insert_sleep(al, access_token, acur)
+            await insert_recharge(al, access_token, acur)
+            await insert_cardio_load(al, access_token, acur)
 
 
 
@@ -63,7 +125,7 @@ async def create_tables():
                 CREATE TABLE IF NOT EXISTS sleep (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
             await acur.execute("""
-                CREATE TABLE IF NOT EXISTS cardio_load_level (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
+                CREATE TABLE IF NOT EXISTS cardio_load (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS bedtime (pk SERIAL PRIMARY KEY, period_start_time timestamp with time zone not null unique, data jsonb not null unique)  
