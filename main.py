@@ -13,9 +13,10 @@ TOKEN_FILENAME = "usertokens.yml"
 def get_db_conn_string():
     config = get_config()
     return(f"""
-        dbname={config["db"]}
-        user={config["user"]}
-        password={config["password"]}
+        dbname={config["db"]["db"]}
+        user={config["db"]["user"]}
+        password={config["db"]["password"]}
+        host={config["db"]["host"]}
     """)
 
 
@@ -25,8 +26,10 @@ async def insert_exercises(al, access_token, acur):
         polar_id = exercise.get("id")
         start_time = exercise.get("start_time")
         await acur.execute(
-            "INSERT INTO exercises (polar_id, start_time, data) VALUES (%s, %s, %s) on conflict do nothing",
-            (polar_id, start_time, exercise))
+            #"INSERT INTO exercises (polar_id, start_time, data) VALUES (%s, %s, %s) on conflict do nothing",
+            #(polar_id, start_time, exercise))
+            f"INSERT INTO exercises (polar_id, start_time, data) VALUES ({polar_id}, {start_time}, {exercise}) on conflict do nothing",
+        )
 
 
 
@@ -37,7 +40,7 @@ async def get_all():
     conn_str = get_db_conn_string()
     async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
         async with aconn.cursor() as acur:
-            insert_exercises(al, access_token, acur)
+            await insert_exercises(al, access_token, acur)
 
 
 
@@ -83,10 +86,10 @@ def get_accesslink():
     return accesslink
 
 
-def run():
-    create_tables
-    al = get_config()
+async def main():
+    await create_tables()
+    await get_all()
 
 
 if __name__ == "__main__":
-    run()
+    asyncio.run(main())
