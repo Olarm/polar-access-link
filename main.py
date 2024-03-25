@@ -19,18 +19,26 @@ def get_db_conn_string():
     """)
 
 
-async def insert_exercise():
+async def insert_exercises(al, access_token, acur):
+    exercises = al.get_exercises(access_token)
+    for exercise in exercises:
+        polar_id = exercise.get("id")
+        start_time = exercise.get("start_time")
+        await acur.execute(
+            "INSERT INTO exercises (polar_id, start_time, data) VALUES (%s, %s, %s) on conflict do nothing",
+            (polar_id, start_time, exercise))
+
+
+
+async def get_all():
+    al = get_accesslink()
+    config = get_config()
+    access_token = config.get("access_token")
     conn_str = get_db_conn_string()
     async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
         async with aconn.cursor() as acur:
-            await acur.execute(
-                "INSERT INTO test (num, data) VALUES (%s, %s)",
-                (100, "abc'def"))
-            await acur.execute("SELECT * FROM test")
-            await acur.fetchone()
-            # will return (1, 100, "abc'def")
-            async for record in acur:
-                print(record)
+            insert_exercises(al, access_token, acur)
+
 
 
 async def create_tables():
@@ -38,10 +46,24 @@ async def create_tables():
     async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("""
-                CREATE TABLE IF NOT EXISTS exercises (pk SERIAL PRIMARY KEY, start_time timestamp with time zone data jsonb);
+                CREATE TABLE IF NOT EXISTS exercises (
+                    pk SERIAL PRIMARY KEY, 
+                    polar_id varchar(20) not null unique, 
+                    start_time timestamp with time zone not null, 
+                    data jsonb not null unique
+                );
             """)
             await acur.execute("""
-                CREATE TABLE IF NOT EXISTS recharge (pk SERIAL PRIMARY KEY, date date, data jsonb, )  
+                CREATE TABLE IF NOT EXISTS recharge (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
+            """)
+            await acur.execute("""
+                CREATE TABLE IF NOT EXISTS sleep (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
+            """)
+            await acur.execute("""
+                CREATE TABLE IF NOT EXISTS cardio_load_level (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
+            """)
+            await acur.execute("""
+                CREATE TABLE IF NOT EXISTS bedtime (pk SERIAL PRIMARY KEY, period_start_time timestamp with time zone not null unique, data jsonb not null unique)  
             """)
 
 
@@ -62,6 +84,7 @@ def get_accesslink():
 
 
 def run():
+    create_tables
     al = get_config()
 
 
