@@ -22,6 +22,15 @@ def create_url(today):
     return f"https://flow.polar.com/activity/summary/{d}.{m}.{y}/{d}.{m}.{y}/day?_={u}"
 
 
+def get_yesterday(email, password):
+    session = login(email, password)
+    yesterday = datetime.today() - timedelta(days=1)
+    url = create_url(yesterday)
+    r = session.get(url)
+    data = parse_response(r.text)
+    data["date"] = yesterday
+    return data
+
 
 def parse_response(r_text):
     soup = BeautifulSoup(r_text, "html.parser")
@@ -43,11 +52,10 @@ def parse_response(r_text):
             value = spans[i-1].get_text()
             delta = None
             if text == "Sleep time" or text == "active time tracked":
-                #time_str = value.split(": ")[1]
                 t = datetime.strptime(value, "%H hours %M minutes")
                 delta = timedelta(hours=t.hour, minutes=t.minute)
-                print(f"{text}: {delta}")
-                ret[text] = delta
+                ret[text] = delta.seconds
             else:
-                print(f"{text}: {value}")
                 ret[text] = value
+
+    return ret
