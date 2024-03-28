@@ -12,12 +12,13 @@ def login(email, password):
     return session
 
 
-def create_url():
-    today = datetime.today()
+def create_url(today):
+    #today = datetime.today()
     y = today.year
     m = today.month
     d = today.day
-    u = int(time.time() * 1000)
+    u = int(time.mktime(today.timetuple()) * 1000)
+    #u = int(time.time() * 1000)
     return f"https://flow.polar.com/activity/summary/{d}.{m}.{y}/{d}.{m}.{y}/day?_={u}"
 
 
@@ -33,6 +34,9 @@ def parse_response(r_text):
         'inactivity stamps',
         'Sleep time'
     ]
+
+    ret = {}
+
     for i, span in enumerate(spans):
         text = span.get_text()
         if text in keys:
@@ -43,5 +47,7 @@ def parse_response(r_text):
                 t = datetime.strptime(value, "%H hours %M minutes")
                 delta = timedelta(hours=t.hour, minutes=t.minute)
                 print(f"{text}: {delta}")
+                ret[text] = delta
             else:
                 print(f"{text}: {value}")
+                ret[text] = value
