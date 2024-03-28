@@ -133,6 +133,17 @@ async def create_tables():
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS nasalspray (pk SERIAL PRIMARY KEY, timestamp timestamp with time zone not null unique, usage VARCHAR(1))  
             """)
+            await acur.execute("""
+                CREATE TABLE IF NOT EXISTS activity (
+                    pk SERIAL PRIMARY KEY, 
+                    date date unique not null, 
+                    active_time int not null,
+                    steps int not null,
+                    kilocalories int not null,
+                    inactivity_stamps int not null,
+                    sleep_time int not null
+                )  
+            """)
 
 
 
