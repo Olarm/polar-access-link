@@ -32,6 +32,15 @@ def get_yesterday(email, password):
     return data
 
 
+def get_day(email, password, day):
+    session = login(email, password)
+    url = create_url(day)
+    r = session.get(url)
+    data = parse_response(r.text)
+    data["date"] = day
+    return data
+
+
 def parse_response(r_text):
     soup = BeautifulSoup(r_text, "html.parser")
     spans = soup.findAll("span")
