@@ -134,12 +134,12 @@ async def insert_activity(config, acur):
                 data['steps counted'],
                 data['kilocalories burned'],
                 data['inactivity stamps'],
-                data.get('Sleep time', None)
+                data.get('Sleep time', None),
                 data['active time tracked'], 
                 data['steps counted'],
                 data['kilocalories burned'],
                 data['inactivity stamps'],
-                data.get('Sleep time', None)
+                data.get('Sleep time', None),
                 )
             )
         except Exception as e:
