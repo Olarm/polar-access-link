@@ -10,7 +10,7 @@ from polar_flow_scraper import login, get_yesterday, get_day
 
 
 logging.basicConfig(
-    filename='enviroplus-mqtt.log', 
+    filename='polar.log', 
     level=logging.INFO,
     format='%(asctime)s %(levelname)-8s %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
