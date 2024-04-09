@@ -1,6 +1,7 @@
 __pycache__
 venv
 
+*.log
 *.toml
 *.yml
 *.yaml
