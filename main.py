@@ -3,9 +3,19 @@ import json
 import psycopg
 import asyncio
 import datetime
+import logging
 
 from accesslink import AccessLink
 from polar_flow_scraper import login, get_yesterday, get_day
+
+
+logging.basicConfig(
+    filename='enviroplus-mqtt.log', 
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 TOKEN_FILENAME = "usertokens.yml"
@@ -97,40 +107,43 @@ async def insert_activity(config, acur):
     for i in range(1,5):
         day = datetime.datetime.today() - datetime.timedelta(days=i)
         data = get_day(config["username"], config["password"], day)
-        await acur.execute("""
-            INSERT INTO 
-                activity (
-                    date,
-                    active_time,
-                    steps,
-                    kilocalories,
-                    inactivity_stamps,
-                    sleep_time
+        try:
+            await acur.execute("""
+                INSERT INTO 
+                    activity (
+                        date,
+                        active_time,
+                        steps,
+                        kilocalories,
+                        inactivity_stamps,
+                        sleep_time
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (date)
+                    DO UPDATE
+                        SET 
+                            active_time = %s,
+                            steps = %s,
+                            kilocalories = %s,
+                            inactivity_stamps = %s,
+                            sleep_time = %s
+            """,
+                (
+                data['date'],
+                data['active time tracked'], 
+                data['steps counted'],
+                data['kilocalories burned'],
+                data['inactivity stamps'],
+                data['Sleep time'],
+                data['active time tracked'], 
+                data['steps counted'],
+                data['kilocalories burned'],
+                data['inactivity stamps'],
+                data['Sleep time']
                 )
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (date)
-                DO UPDATE
-                    SET 
-                        active_time = %s,
-                        steps = %s,
-                        kilocalories = %s,
-                        inactivity_stamps = %s,
-                        sleep_time = %s
-        """,
-            (
-            data['date'],
-            data['active time tracked'], 
-            data['steps counted'],
-            data['kilocalories burned'],
-            data['inactivity stamps'],
-            data['Sleep time'],
-            data['active time tracked'], 
-            data['steps counted'],
-            data['kilocalories burned'],
-            data['inactivity stamps'],
-            data['Sleep time']
             )
-        )
+        except Exception as e:
+            logger.error(f"Caught: \n{e}\ndata keys:\n{list(data.keys())}")
 
 
 async def get_all():
