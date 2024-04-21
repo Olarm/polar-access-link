@@ -104,7 +104,7 @@ async def insert_cardio_load(al, access_token, acur):
 
 
 async def insert_activity(config, acur):
-    for i in range(1,5):
+    for i in range(1,8):
         day = datetime.datetime.today() - datetime.timedelta(days=i)
         data = get_day(config["username"], config["password"], day)
         try:
