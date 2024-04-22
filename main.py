@@ -146,6 +146,35 @@ async def insert_activity(config, acur):
             logger.error(f"Caught: \n{e}\ndata keys:\n{list(data.keys())}")
 
 
+async def insert_heart_rate(al, access_token, acur, days=1):
+    if days < 1:
+        return
+    for i in range(1,days):
+        day = datetime.datetime.today() - datetime.timedelta(days=i)
+        data = al.get_continuous_heart_rate(access_token, day)
+        hr_data = data["heart_rate_samples"]
+
+        query = f"""
+            INSERT INTO heart_rate
+            VALUES (%s, %s)
+            ON CONFLICT (timestamp)
+            DO UPDATE SET heart_rate = %s;
+        """
+        acur.executemany(query, hr_data)
+
+
+async def get_single(call, **kwargs):
+    al = get_accesslink()
+    config = get_config()
+    access_token = config.get("access_token")
+    conn_str = get_db_conn_string()
+    async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
+        async with aconn.cursor() as acur:
+            match call:
+                case "insert_heart_rate":
+                    insert_heart_rate(al, access_token, acur, days=kwargs.get("days", 1))
+
+
 async def get_all():
     al = get_accesslink()
     config = get_config()
@@ -184,6 +213,9 @@ async def create_tables():
             """)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS bedtime (pk SERIAL PRIMARY KEY, period_start_time timestamp with time zone not null unique, data jsonb not null unique)  
+            """)
+            await acur.execute("""
+                CREATE TABLE IF NOT EXISTS heart_rate (timestamp timestamp not null unique, heart_rate integer not null)
             """)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS nasalspray (pk SERIAL PRIMARY KEY, timestamp timestamp with time zone not null unique, usage VARCHAR(1))  
