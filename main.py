@@ -160,7 +160,7 @@ async def insert_heart_rate(al, access_token, acur, days=1):
             ON CONFLICT (timestamp)
             DO UPDATE SET heart_rate = %s;
         """
-        acur.executemany(query, hr_data)
+        await acur.executemany(query, hr_data)
 
 
 async def get_single(call, **kwargs):
