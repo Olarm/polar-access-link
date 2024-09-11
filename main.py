@@ -100,7 +100,8 @@ async def insert_sleep(al, access_token, acur):
                 group_duration_score, group_solidity_score, group_regeneration_score
             )
         )
-        sleep_id = await acur.fetchone()[0]
+        inserted_row = await acur.fetchone()
+        sleep_id = inserted_row[0]
         await insert_hypnogram(sleep.get("hypnogram"), sleep_id, acur)
         await insert_sleep_hr(sleep.get("heart_rate_samples"), sleep_id, acur)
 
