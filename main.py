@@ -29,6 +29,7 @@ def get_db_conn_string():
         user={config["db"]["user"]}
         password={config["db"]["password"]}
         host={config["db"]["host"]}
+        port={config["db"]["port"]}
     """)
 
 
@@ -38,8 +39,6 @@ async def insert_exercises(al, access_token, acur):
         polar_id = exercise.get("id")
         start_time = datetime.datetime.fromisoformat(exercise.get("start_time"))
         await acur.execute(
-            #"INSERT INTO exercises (polar_id, start_time, data) VALUES (%s, %s, %s) on conflict do nothing",
-            #(polar_id, start_time, exercise))
             """INSERT INTO 
                 exercises (
                     polar_id, 
@@ -53,6 +52,82 @@ async def insert_exercises(al, access_token, acur):
 
 
 async def insert_sleep(al, access_token, acur):
+    sleeps = al.get_sleep(access_token).get("nights")
+    for sleep in sleeps:
+        sleep_date = datetime.date.fromisoformat(sleep.get("date"))
+        polar_user = sleep.get("polar_user")
+        sleep_start_time = sleep.get("sleep_start_time")
+        sleep_end_time = sleep.get("sleep_end_time")
+        device_id = sleep.get("device_id")
+        continuity = sleep.get("continuity")
+        continuity_class = sleep.get("continuity_class")
+        light_sleep = sleep.get("light_sleep")
+        deep_sleep = sleep.get("deep_sleep")
+        rem_sleep = sleep.get("rem_sleep")
+        unrecognized_sleep_stage = sleep.get("unrecognized_sleep_stage")
+        sleep_score = sleep.get("sleep_score")
+        total_interruption_duration = sleep.get("total_interruption_duration")
+        sleep_charge = sleep.get("sleep_charge")
+        sleep_goal = sleep.get("sleep_goal")
+        sleep_rating = sleep.get("sleep_rating")
+        short_interruption_duration = sleep.get("short_interruption_duration")
+        long_interruption_duration = sleep.get("long_interruption_duration")
+        sleep_cycles = sleep.get("sleep_cycles")
+        group_duration_score = sleep.get("group_duration_score")
+        group_solidity_score = sleep.get("group_solidity_score")
+        group_regeneration_score = sleep.get("group_regeneration_score")
+        await acur.execute("""
+            INSERT INTO sleep (
+                polar_user, date, sleep_start_time, sleep_end_time, device_id, continuity, 
+                continuity_class, light_sleep, deep_sleep, rem_sleep, unrecognized_sleep_stage, 
+                sleep_score, total_interruption_duration, sleep_charge, sleep_goal, sleep_rating, 
+                short_interruption_duration, long_interruption_duration, sleep_cycles, 
+                group_duration_score, group_solidity_score, group_regeneration_score
+            )                           
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s, %s 
+                )
+            ON CONFLICT DO NOTHING
+            RETURNING id""",
+            (
+                polar_user, sleep_date, sleep_start_time, sleep_end_time, device_id, continuity, 
+                continuity_class, light_sleep, deep_sleep, rem_sleep, unrecognized_sleep_stage, 
+                sleep_score, total_interruption_duration, sleep_charge, sleep_goal, sleep_rating, 
+                short_interruption_duration, long_interruption_duration, sleep_cycles, 
+                group_duration_score, group_solidity_score, group_regeneration_score
+            )
+        )
+        sleep_id = acur.fetchone()[0]
+        await insert_hypnogram(sleep.get("hypnogram"), sleep_id, acur)
+        await insert_sleep_hr(sleep.get("heart_rate_samples"), sleep_id, acur)
+
+
+async def insert_hypnogram(hypnogram, sleep_id, acur):
+    for key, value in hypnogram.items():
+        await acur.execute("""
+            INSERT INTO hypnogram (sleep_id, time, stage)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (sleep_id, time) DO NOTHING;
+        """,
+        (sleep_id, key, value)
+        )
+
+
+async def insert_sleep_hr(hypnogram, sleep_id, acur):
+    for key, value in hypnogram.items():
+        await acur.execute("""
+            INSERT INTO sleep_heart_rate (sleep_id, time, heart_rate)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (sleep_id, time) DO NOTHING;
+        """,
+        (sleep_id, key, value)
+        )
+
+
+async def insert_sleep_old(al, access_token, acur):
     sleeps = al.get_sleep(access_token).get("nights")
     for sleep in sleeps:
         sleep_date = datetime.date.fromisoformat(sleep.get("date"))
@@ -146,6 +221,31 @@ async def insert_activity(config, acur):
             logger.error(f"Caught: \n{e}\ndata keys:\n{list(data.keys())}")
 
 
+def sync_insert_heart_rate(al, access_token, cur, days=1):
+    print("here")
+    if days < 1:
+        print(f"days: {days}")
+        return
+    for i in range(1,days+1):
+        day = datetime.datetime.today() - datetime.timedelta(days=i)
+        day = day.date()
+        print(f"getting {day}")
+        data = al.get_continuous_heart_rate(access_token, day)
+        date = data["date"]
+        hr_data = []
+        for i in data["heart_rate_samples"]:
+            ts = datetime.datetime.strptime(date+i["sample_time"], "%Y-%m-%d%H:%M:%S")
+            hr_data.append((ts, i["heart_rate"]))
+
+        query = f"""
+            INSERT INTO heart_rate (timestamp, heart_rate)
+            VALUES (%s, %s)
+            ON CONFLICT (timestamp)
+            DO NOTHING;
+        """
+        cur.executemany(query, hr_data)
+
+
 async def insert_heart_rate(al, access_token, acur, days=1):
     if days < 1:
         return
@@ -158,21 +258,22 @@ async def insert_heart_rate(al, access_token, acur, days=1):
             INSERT INTO heart_rate
             VALUES (%s, %s)
             ON CONFLICT (timestamp)
-            DO UPDATE SET heart_rate = %s;
+            DO NOTHING;
         """
         await acur.executemany(query, hr_data)
 
 
-async def get_single(call, **kwargs):
+def get_single(call, **kwargs):
     al = get_accesslink()
     config = get_config()
     access_token = config.get("access_token")
     conn_str = get_db_conn_string()
-    async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
-        async with aconn.cursor() as acur:
+    with psycopg.connect(conn_str) as conn:
+        with conn.cursor() as cur:
             match call:
                 case "insert_heart_rate":
-                    insert_heart_rate(al, access_token, acur, days=kwargs.get("days", 1))
+                    print("getting heart rate")
+                    sync_insert_heart_rate(al, access_token, cur, days=kwargs.get("days", 1))
 
 
 async def get_all():
