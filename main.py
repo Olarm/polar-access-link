@@ -101,6 +101,8 @@ async def insert_sleep(al, access_token, acur):
             )
         )
         inserted_row = await acur.fetchone()
+        if inserted_row is None:
+            continue
         sleep_id = inserted_row[0]
         await insert_hypnogram(sleep.get("hypnogram"), sleep_id, acur)
         await insert_sleep_hr(sleep.get("heart_rate_samples"), sleep_id, acur)
