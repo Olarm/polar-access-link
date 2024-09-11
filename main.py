@@ -85,10 +85,10 @@ async def insert_sleep(al, access_token, acur):
                 group_duration_score, group_solidity_score, group_regeneration_score
             )                           
                 VALUES (
-                    %s, %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s, %s, %s 
+                    %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s 
                 )
             ON CONFLICT DO NOTHING
             RETURNING id""",
