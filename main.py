@@ -87,7 +87,7 @@ async def insert_sleep(al, access_token, acur):
                 VALUES (
                     %s, %s, %s, %s, %s, 
                     %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s 
                 )
             ON CONFLICT DO NOTHING
