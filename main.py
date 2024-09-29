@@ -146,7 +146,73 @@ async def insert_sleep_old(al, access_token, acur):
         )
 
 
+async def insert_recharge_hrv(hrv, recharge_id, acur):
+    for key, value in hrv.items():
+        await acur.execute("""
+            INSERT INTO polar_hrv_samples (recharge_id, time, hrv)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (recharge_id, time) DO NOTHING;
+        """,
+        (recharge_id, key, value)
+        )
+
+
+async def insert_recharge_breathing(breathing, recharge_id, acur):
+    for key, value in breathing.items():
+        await acur.execute("""
+            INSERT INTO sleep_heart_rate (recharge_id, time, breathing_rate)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (recharge_id, time) DO NOTHING;
+        """,
+        (recharge_id, key, value)
+        )
+
+
 async def insert_recharge(al, access_token, acur):
+    user_id = 1
+    recharges = al.get_recharge(access_token).get("recharges")
+    for recharge in recharges:
+        await acur.execute("""
+            INSERT INTO polar_recharge (
+                user_id,
+                polar_user,
+                date,
+                heart_rate_avg,
+                beat_to_beat_avg,
+                heart_rate_variability_avg,
+                breathing_rate_avg,
+                nightly_recharge_status,
+                ans_charge,
+                ans_charge_status
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            ON CONFLICT do nothing
+            RETURNING id""",
+            (
+                user_id,
+                recharge.get("polar_user"),
+                recharge.get("date"),
+                recharge.get("heart_rate_avd"),
+                recharge.get("beat_to_beat_avg"),
+                recharge.get("heart_rate_variability_avg"),
+                recharge.get("breathing_rate_avg"),
+                recharge.get("nightly_recharge_status"),
+                recharge.get("ans_charge"),
+                recharge.get("ans_charge_status")
+            )
+        )
+        inserted_row = await acur.fetchone()
+        if inserted_row is None:
+            continue
+        recharge_id = inserted_row[0]
+        await insert_recharge_hrv(recharge.get("hrv_samples"), recharge_id, acur)
+        await insert_recharge_breathing(recharge.get("breathing_samples"), recharge_id, acur)
+
+
+
+async def insert_recharge_old(al, access_token, acur):
     recharges = al.get_recharge(access_token).get("recharges")
     for recharge in recharges:
         recharge_date = datetime.date.fromisoformat(recharge.get("date"))
