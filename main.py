@@ -160,7 +160,7 @@ async def insert_recharge_hrv(hrv, recharge_id, acur):
 async def insert_recharge_breathing(breathing, recharge_id, acur):
     for key, value in breathing.items():
         await acur.execute("""
-            INSERT INTO sleep_heart_rate (recharge_id, time, breathing_rate)
+            INSERT INTO polar_breathing_samples (recharge_id, time, breathing_rate)
             VALUES (%s, %s, %s)
             ON CONFLICT (recharge_id, time) DO NOTHING;
         """,
