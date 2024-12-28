@@ -447,29 +447,71 @@ async def create_sleep(acur):
         CREATE TABLE if not exists sleep  (
             id SERIAL PRIMARY KEY,
             polar_user character varying(255),
-            date date,
-            sleep_start_time timestamp with time zone,
-            sleep_end_time timestamp with time zone,
-            device_id character varying(50),
-            continuity numeric,
-            continuity_class integer,
-            light_sleep integer,
-            deep_sleep integer,
-            rem_sleep integer,
-            unrecognized_sleep_stage integer,
-            sleep_score integer,
-            total_interruption_duration integer,
-            sleep_charge integer,
-            sleep_goal integer,
-            sleep_rating integer,
-            short_interruption_duration integer,
-            long_interruption_duration integer,
-            sleep_cycles integer,
-            group_duration_score numeric,
-            group_solidity_score numeric,
-            group_regeneration_score numeric
+            date date NOT NULL,
+            sleep_start_time timestamp with time zone NOT NULL,
+            sleep_end_time timestamp with time zone NOT NULL,
+            device_id character varying(50) NOT NULL,
+            continuity numeric NOT NULL,
+            continuity_class integer NOT NULL,
+            light_sleep integer NOT NULL,
+            deep_sleep integer NOT NULL,
+            rem_sleep integer NOT NULL,
+            unrecognized_sleep_stage integer NOT NULL,
+            sleep_score integer NOT NULL,
+            total_interruption_duration integer NOT NULL,
+            sleep_charge integer NOT NULL,
+            sleep_goal integer NOT NULL,
+            sleep_rating integer NOT NULL,
+            short_interruption_duration integer NOT NULL,
+            long_interruption_duration integer NOT NULL,
+            sleep_cycles integer NOT NULL,
+            group_duration_score numeric NOT NULL,
+            group_solidity_score numeric NOT NULL,
+            group_regeneration_score numeric NOT NULL
         );
     """)
+
+
+async def create_hypnogram(acur):
+    await acur.execute("""
+        CREATE TABLE if not exists hypnogram (
+            sleep_id INT references sleep(id),
+            time time without time zone NOT NULL,
+            stage integer NOT NULL,
+            unique(sleep_id, time)
+    );
+    """)
+
+
+async def create_sleep_hr(acur):
+    await acur.execute("""
+        CREATE TABLE sleep_heart_rate (
+            sleep_id INT references sleep(id),
+            time time without time zone NOT NULL,
+            heart_rate integer NOT NULL,
+            unique(sleep_id, time)
+        );
+    """)
+
+
+async def create_sleep_hr(acur):
+    await acur.execute("""
+        CREATE TABLE if not exists polar_recharge (
+            id integer NOT NULL,
+            user_id integer,
+            polar_user character varying(255),
+            date date,
+            heart_rate_avg integer,
+            beat_to_beat_avg integer,
+            heart_rate_variability_avg integer,
+            breathing_rate_avg numeric,
+            nightly_recharge_status integer,
+            ans_charge numeric,
+            ans_charge_status integer
+        );
+    """)
+
+
 
 async def create_tables():
     conn_str = get_db_conn_string()
@@ -508,6 +550,8 @@ async def create_tables():
             #    CREATE TABLE IF NOT EXISTS sleep (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             #""")
             await create_sleep(acur)
+            await create_hypnogram(acur)
+            await create_sleep_hr(acur)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS cardio_load (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
