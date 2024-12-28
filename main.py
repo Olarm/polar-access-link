@@ -4,6 +4,9 @@ import psycopg
 import asyncio
 import datetime
 import logging
+import tcxparser
+import requests
+import os
 
 from accesslink import AccessLink
 from polar_flow_scraper import login, get_yesterday, get_day
@@ -19,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 TOKEN_FILENAME = "usertokens.yml"
+ACCESSLINK_URL = "https://www.polaraccesslink.com/v3"
 
 
 
@@ -31,6 +35,84 @@ def get_db_conn_string():
         host={config["db"]["host"]}
         port={config["db"]["port"]}
     """)
+
+
+async def get_exercises_tcx(acur, access_link, access_token):
+    headers = {
+        "Accept": "application/vnd.garmin.tcx+xml",
+        "Authorization": f"Bearer {access_token}"
+    }
+    exercises = access_link.get_exercises(access_token)
+    for ex in exercises:
+        start_time = ex["start_time"]
+        start_time = start_time.replace("T", "_")
+        start_time = start_time.replace(":", "-")
+        filename = start_time + ".tcx"
+        url = f"{ACCESSLINK_URL}/exercises/{ex['id']}/tcx"
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            print(f"Bad response: {response.text}")
+            continue
+        tcx_data = response.text
+
+        output_dir = "tcx"
+        out_exists = os.path.exists(output_dir)
+        if not out_exists:
+            #create a new directory because it does not exist
+            os.makedirs(output_dir)
+            print("Created directory %s" % output_dir)
+
+        outfile = open(os.path.join(output_dir, filename), 'w')
+        outfile.write(tcx_data)
+        outfile.close()
+
+        await insert_exercise_tcx(acur, tcx_data, ex, filename)
+
+
+async def insert_exercise_tcx(acur, exercise, filename):
+    tcx = tcxparser.TCXParser(filename)
+    timestamp_with_tz = datetime.fromisoformat(tcx.started_at.replace("Z", "+00:00"))
+
+    try:
+        await acur.execute("""
+            INSERT INTO exercises_tcx (
+                polar_id,
+                filename,
+                start_time, 
+                distance,
+                hr_avg,
+                hr_max,
+                hr_min,
+                training_load,
+                duration,
+                sport_type,
+                calories,
+                cardio_load,
+                ascent,
+                descent
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT do nothing
+            """,
+            (
+                exercise["polar_id"],
+                filename,
+                timestamp_with_tz,
+                tcx.distance,
+                tcx.hr_avg,
+                tcx.hr_max,
+                tcx.hr_min,
+                exercise["training_load"],
+                tcx.duration,
+                tcx.activity_type,
+                tcx.calories,
+                exercise["training_load_pro"]["cardio-load"],
+                tcx.ascent,
+                tcx.descent
+            )
+        )
+    except Exception as e:
+        logger.error(f"Caught: \n{e}\ndata keys:\n{list(data.keys())}")
 
 
 async def insert_exercises(al, access_token, acur):
@@ -357,6 +439,7 @@ async def get_all():
             await insert_recharge(al, access_token, acur)
             await insert_cardio_load(al, access_token, acur)
             await insert_activity(config, acur)
+            await get_exercises_tcx(acur, al, access_token)
 
 
 
@@ -364,6 +447,24 @@ async def create_tables():
     conn_str = get_db_conn_string()
     async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
         async with aconn.cursor() as acur:
+            await acur.execute("""
+                CREATE TABLE IF NOT EXISTS exercises_tcx (
+                    polar_id varchar(20) not null unique, 
+                    filename text not null unique,
+                    start_time timestamp with time zone not null, 
+                    distance float not null,
+                    hr_avg integer not null,
+                    hr_max integer not null,
+                    hr_min integer not null,
+                    training_load float not null,
+                    duration float not null,
+                    sport_type text not null,
+                    calories integer not null,
+                    cardio_load float not null,
+                    ascent float not null,
+                    descent float not null
+                );
+            """)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS exercises (
                     pk SERIAL PRIMARY KEY, 
