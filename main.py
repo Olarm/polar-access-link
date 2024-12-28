@@ -442,6 +442,34 @@ async def get_all():
             await get_exercises_tcx(acur, al, access_token)
 
 
+async def create_sleep(acur):
+    await acur.execute("""
+        CREATE TABLE if not exists sleep  (
+            id SERIAL PRIMARY KEY,
+            polar_user character varying(255),
+            date date,
+            sleep_start_time timestamp with time zone,
+            sleep_end_time timestamp with time zone,
+            device_id character varying(50),
+            continuity numeric,
+            continuity_class integer,
+            light_sleep integer,
+            deep_sleep integer,
+            rem_sleep integer,
+            unrecognized_sleep_stage integer,
+            sleep_score integer,
+            total_interruption_duration integer,
+            sleep_charge integer,
+            sleep_goal integer,
+            sleep_rating integer,
+            short_interruption_duration integer,
+            long_interruption_duration integer,
+            sleep_cycles integer,
+            group_duration_score numeric,
+            group_solidity_score numeric,
+            group_regeneration_score numeric
+        );
+    """)
 
 async def create_tables():
     conn_str = get_db_conn_string()
@@ -476,9 +504,10 @@ async def create_tables():
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS recharge (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
-            await acur.execute("""
-                CREATE TABLE IF NOT EXISTS sleep (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
-            """)
+            #await acur.execute("""
+            #    CREATE TABLE IF NOT EXISTS sleep (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
+            #""")
+            await create_sleep(acur)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS cardio_load (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
