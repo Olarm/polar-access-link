@@ -62,16 +62,17 @@ async def get_exercises_tcx(acur, access_link, access_token):
             os.makedirs(output_dir)
             print("Created directory %s" % output_dir)
 
-        outfile = open(os.path.join(output_dir, filename), 'w')
+        file_path = os.path.join(output_dir, filename)
+        outfile = open(file_path, 'w')
         outfile.write(tcx_data)
         outfile.close()
 
-        await insert_exercise_tcx(acur, tcx_data, ex, filename)
+        await insert_exercise_tcx(acur, ex, file_path)
 
 
 async def insert_exercise_tcx(acur, exercise, filename):
     tcx = tcxparser.TCXParser(filename)
-    timestamp_with_tz = datetime.fromisoformat(tcx.started_at.replace("Z", "+00:00"))
+    timestamp_with_tz = datetime.datetime.fromisoformat(tcx.started_at)
 
     try:
         await acur.execute("""
@@ -91,28 +92,29 @@ async def insert_exercise_tcx(acur, exercise, filename):
                 ascent,
                 descent
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT do nothing
             """,
             (
-                exercise["polar_id"],
+                exercise["id"],
                 filename,
                 timestamp_with_tz,
-                tcx.distance,
+                float(tcx.distance),
                 tcx.hr_avg,
                 tcx.hr_max,
                 tcx.hr_min,
                 exercise["training_load"],
-                tcx.duration,
+                float(tcx.duration),
                 tcx.activity_type,
                 tcx.calories,
                 exercise["training_load_pro"]["cardio-load"],
-                tcx.ascent,
-                tcx.descent
+                float(tcx.ascent),
+                float(tcx.descent)
             )
         )
     except Exception as e:
-        logger.error(f"Caught: \n{e}\ndata keys:\n{list(data.keys())}")
+        logger.error(f"Caught: \n{e}")
+        print(f"Exercise tcx caught: {e}")
 
 
 async def insert_exercises(al, access_token, acur):
@@ -276,7 +278,7 @@ async def insert_recharge(al, access_token, acur):
                 user_id,
                 recharge.get("polar_user"),
                 recharge.get("date"),
-                recharge.get("heart_rate_avd"),
+                recharge.get("heart_rate_avg"),
                 recharge.get("beat_to_beat_avg"),
                 recharge.get("heart_rate_variability_avg"),
                 recharge.get("breathing_rate_avg"),
@@ -447,7 +449,7 @@ async def create_sleep(acur):
         CREATE TABLE if not exists sleep  (
             id SERIAL PRIMARY KEY,
             polar_user character varying(255),
-            date date NOT NULL,
+            date date NOT NULL unique,
             sleep_start_time timestamp with time zone NOT NULL,
             sleep_end_time timestamp with time zone NOT NULL,
             device_id character varying(50) NOT NULL,
@@ -485,7 +487,7 @@ async def create_hypnogram(acur):
 
 async def create_sleep_hr(acur):
     await acur.execute("""
-        CREATE TABLE sleep_heart_rate (
+        CREATE TABLE if not exists sleep_heart_rate (
             sleep_id INT references sleep(id),
             time time without time zone NOT NULL,
             heart_rate integer NOT NULL,
@@ -494,23 +496,44 @@ async def create_sleep_hr(acur):
     """)
 
 
-async def create_sleep_hr(acur):
+async def create_polar_recharge(acur):
     await acur.execute("""
         CREATE TABLE if not exists polar_recharge (
-            id integer NOT NULL,
+            id SERIAL PRIMARY KEY,
             user_id integer,
             polar_user character varying(255),
-            date date,
-            heart_rate_avg integer,
-            beat_to_beat_avg integer,
-            heart_rate_variability_avg integer,
-            breathing_rate_avg numeric,
-            nightly_recharge_status integer,
-            ans_charge numeric,
-            ans_charge_status integer
+            date date NOT NULL unique,
+            heart_rate_avg integer NOT NULL,
+            beat_to_beat_avg integer NOT NULL,
+            heart_rate_variability_avg integer NOT NULL,
+            breathing_rate_avg numeric NOT NULL,
+            nightly_recharge_status integer NOT NULL,
+            ans_charge numeric NOT NULL,
+            ans_charge_status integer NOT NULL
         );
     """)
 
+
+async def create_polar_hrv(acur):
+    await acur.execute("""
+        CREATE TABLE if not exists polar_hrv_samples (
+            recharge_id INTEGER references polar_recharge(id),
+            time time without time zone NOT NULL,
+            hrv integer NOT NULL,
+            unique(recharge_id, time)
+        );
+    """)
+
+
+async def create_polar_breathing(acur):
+    await acur.execute("""
+        CREATE TABLE if not exists polar_breathing_samples (
+            recharge_id INTEGER references polar_recharge(id),
+            time time without time zone NOT NULL,
+            breathing_rate numeric NOT NULL,
+            unique(recharge_id, time)
+        );
+    """)
 
 
 async def create_tables():
@@ -552,6 +575,9 @@ async def create_tables():
             await create_sleep(acur)
             await create_hypnogram(acur)
             await create_sleep_hr(acur)
+            await create_polar_recharge(acur)
+            await create_polar_hrv(acur)
+            await create_polar_breathing(acur)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS cardio_load (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
