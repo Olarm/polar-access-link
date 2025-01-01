@@ -47,7 +47,7 @@ async def get_exercises_tcx(acur, access_link, access_token):
         start_time = ex["start_time"]
         start_time = start_time.replace("T", "_")
         start_time = start_time.replace(":", "-")
-        filename = start_time + ".tcx"
+        filename = "Ola_Moen_" + start_time + ".TCX"
         url = f"{ACCESSLINK_URL}/exercises/{ex['id']}/tcx"
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
@@ -540,7 +540,7 @@ async def create_tables():
                 CREATE TABLE IF NOT EXISTS exercises_tcx (
                     polar_id varchar(20) not null unique, 
                     filename text not null unique,
-                    start_time timestamp with time zone not null, 
+                    start_time timestamp with time zone not null unique, 
                     distance float not null,
                     hr_avg integer not null,
                     hr_max integer not null,
