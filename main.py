@@ -84,15 +84,13 @@ async def insert_exercise_tcx(acur, exercise, filename):
                 hr_avg,
                 hr_max,
                 hr_min,
-                training_load,
                 duration,
                 sport_type,
                 calories,
-                cardio_load,
                 ascent,
                 descent
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT do nothing
             """,
             (
