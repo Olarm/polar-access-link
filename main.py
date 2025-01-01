@@ -103,11 +103,9 @@ async def insert_exercise_tcx(acur, exercise, filename):
                 tcx.hr_avg,
                 tcx.hr_max,
                 tcx.hr_min,
-                exercise["training_load"],
                 float(tcx.duration),
                 tcx.activity_type,
                 tcx.calories,
-                exercise["training_load_pro"]["cardio-load"],
                 float(tcx.ascent),
                 float(tcx.descent)
             )
@@ -549,11 +547,9 @@ async def create_tables():
                     hr_avg integer not null,
                     hr_max integer not null,
                     hr_min integer not null,
-                    training_load float not null,
                     duration float not null,
                     sport_type text not null,
                     calories integer not null,
-                    cardio_load float not null,
                     ascent float not null,
                     descent float not null
                 );
