@@ -395,21 +395,22 @@ def sync_insert_heart_rate(al, access_token, cur, days=1):
         cur.executemany(query, hr_data)
 
 
-async def insert_heart_rate(al, access_token, acur, days=1):
+async def insert_heart_rate(al, access_token, acur, days=30):
     if days < 1:
         return
     for i in range(1,days):
-        day = datetime.datetime.today() - datetime.timedelta(days=i)
+        day = datetime.date.today() - datetime.timedelta(days=i)
         data = al.get_continuous_heart_rate(access_token, day)
+        datestamp = data["date"]
         hr_data = data["heart_rate_samples"]
 
         query = f"""
-            INSERT INTO heart_rate
+            INSERT INTO heart_rate (timestamp, heart_rate)
             VALUES (%s, %s)
             ON CONFLICT (timestamp)
             DO NOTHING;
         """
-        await acur.executemany(query, hr_data)
+        await acur.executemany(query, [(datestamp + " " + d['sample_time'], d['heart_rate']) for d in hr_data])
 
 
 def get_single(call, **kwargs):
@@ -432,6 +433,7 @@ async def get_all():
     conn_str = get_db_conn_string()
     async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
         async with aconn.cursor() as acur:
+            await insert_heart_rate(al, access_token, acur, 30)
             await insert_exercises(al, access_token, acur)
             await insert_sleep(al, access_token, acur)
             await insert_recharge(al, access_token, acur)
