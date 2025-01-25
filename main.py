@@ -533,6 +533,41 @@ async def create_polar_breathing(acur):
         );
     """)
 
+async def create_tcx_hr(acur):
+    await acur.execute("""
+        CREATE TABLE IF NOT EXISTS tcx_hr (
+            tcx_id INTEGER references exercises_tcx(id),
+            hr INTEGER NOT NULL,
+            unique (tcx_id, hr)
+        )
+    """)
+
+async def create_tcx_altitude(acur):
+    await acur.execute("""
+        CREATE TABLE IF NOT EXISTS tcx_altitude (
+            tcx_id INTEGER references exercises_tcx(id),
+            altitude numeric NOT NULL,
+            unique (tcx_id, altitude)
+        )
+    """)
+
+async def create_tcx_cadence(acur):
+    await acur.execute("""
+        CREATE TABLE IF NOT EXISTS tcx_cadence (
+            tcx_id INTEGER references exercises_tcx(id),
+            cadence INTEGER NOT NULL,
+            unique (tcx_id, cadence)
+        )
+    """)
+
+async def create_tcx_timestamps(acur):
+    await acur.execute("""
+        CREATE TABLE IF NOT EXISTS tcx_timestamps (
+            tcx_id INTEGER references exercises_tcx(id),
+            ts timestamp with time zone NOT NULL,
+            unique (tcx_id, ts)
+        )
+    """)
 
 async def create_tables():
     conn_str = get_db_conn_string()
@@ -575,6 +610,10 @@ async def create_tables():
             await create_polar_recharge(acur)
             await create_polar_hrv(acur)
             await create_polar_breathing(acur)
+            await create_tcx_hr(acur)
+            await create_tcx_timestamps(acur)
+            await create_tcx_cadence(acur)
+            await create_tcx_altitude(acur)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS cardio_load (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
