@@ -540,6 +540,7 @@ async def create_tables():
         async with aconn.cursor() as acur:
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS exercises_tcx (
+                    id SERIAL PRIMARY KEY,
                     polar_id varchar(20) not null unique, 
                     filename text not null unique,
                     start_time timestamp with time zone not null unique, 
