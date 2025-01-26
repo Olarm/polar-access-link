@@ -569,6 +569,18 @@ async def create_tcx_timestamps(acur):
         )
     """)
 
+async def create_gpx_track_points(acur):
+    await acur.execute("""
+        CREATE TABLE IF NOT EXISTS gpx_track_points (
+            tcx_id INTEGER references exercises_tcx(id),
+            latitude DOUBLE PRECISION NOT NULL,
+            longitude DOUBLE PRECISION NOT NULL,
+            elevation DOUBLE PRECISION,
+            time TIMESTAMP WITH TIME ZONE NOT NULL,
+            unique (tcx_id, time)
+        );
+    """)
+
 async def create_tables():
     conn_str = get_db_conn_string()
     async with await psycopg.AsyncConnection.connect(conn_str) as aconn:
@@ -614,6 +626,7 @@ async def create_tables():
             await create_tcx_timestamps(acur)
             await create_tcx_cadence(acur)
             await create_tcx_altitude(acur)
+            await create_gpx_track_points(acur)
             await acur.execute("""
                 CREATE TABLE IF NOT EXISTS cardio_load (pk SERIAL PRIMARY KEY, date date unique not null, data jsonb not null unique)  
             """)
